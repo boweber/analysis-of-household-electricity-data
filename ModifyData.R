@@ -72,24 +72,6 @@ shift_dates <- function(dataset,
     return(shifted_data)
 }
 
-shift_by_index <- function(dataset, index, shift_data_column_name = c("PUMPE_TOT")) {
-    warning("not tested")
-    if (index == 0) {
-        return(dataset)
-    }
-    last_index <- nrow(dataset)
-    last_numbers_to_remove <- (last_index - index + 1):last_index
-    if (is.vector(shift_data_column_name)) {
-        for (column_name in shift_data_column_name) {
-            dataset[[column_name]] <- dataset[[column_name]][-(1:index)]
-        }
-    } else {
-        dataset[[shift_data_column_name]] <- dataset[[shift_data_column_name]][-(1:index)]
-    }
-    dataset <- dataset[-last_numbers_to_remove, ]
-    return(dataset)
-}
-
 insert_missing_data <- function(dataset, by_minutes = 30) {
     if ((by_minutes %% 15) != 0) {
         stop("by_minutes must be a multiple of 15")
@@ -101,16 +83,15 @@ insert_missing_data <- function(dataset, by_minutes = 30) {
     last_date <- dataset[nrow(dataset), ]$index
 
     completed <- tibble(index = seq(first_date, last_date, by = paste(by_minutes, "min")))
+    completed$household <- rep(dataset$household[1], nrow(completed))
     return(merge(dataset, completed, all.y = TRUE))
 }
 
-interpolate_missing_data <- function(dataset) {
-    stop("Not implemented yet")
-    row_indices_of_na <- which(is.na(dataset$PUMPE_TOT))
-
+interpolate_missing_data <- function(dataset, column_name = "TEMPERATURE.TOTAL", interpolate = base::mean) {
+    row_indices_of_na <- which(is.na(dataset[[column_name]]))
     next_value_index <- function(start_index, operation) {
         current_index <- start_index
-        while (is.na(dataset[current_index, ]$PUMPE_TOT)) {
+        while (is.na(dataset[current_index, ][[column_name]])) {
             current_index <- operation(current_index)
         }
         return(current_index)
@@ -118,5 +99,20 @@ interpolate_missing_data <- function(dataset) {
     for (na_index in row_indices_of_na) {
         previous_value_index <- next_value_index(na_index, function(x) x - 1)
         post_value_index <- next_value_index(na_index, function(x) x + 1)
+        if (abs(post_value_index - previous_value_index) > 4) {
+            next
+        }
+        previous_value <- dataset[previous_value_index, ][[column_name]]
+        post_value <- dataset[post_value_index, ][[column_name]]
+        interpolated_value <- NA
+        if (is.na(previous_value)) {
+            interpolated_value <- post_value
+        } else if (is.na(post_value)) {
+            interpolated_value <- previous_value
+        } else {
+            interpolated_value <- interpolate(previous_value, post_value)
+        }
+        dataset[na_index, ][[column_name]] <- interpolated_value
     }
+    return(dataset)
 }
