@@ -88,31 +88,26 @@ insert_missing_data <- function(dataset, by_minutes = 30) {
 }
 
 interpolate_missing_data <- function(dataset, column_name = "TEMPERATURE.TOTAL", interpolate = base::mean) {
-    row_indices_of_na <- which(is.na(dataset[[column_name]]))
-    next_value_index <- function(start_index, operation) {
-        current_index <- start_index
-        while (is.na(dataset[current_index, ][[column_name]])) {
-            current_index <- operation(current_index)
+    index <- 1
+
+    while (any(is.na(dataset[[column_name]]))) {
+        missing_data_indices <- which(is.na(dataset[[column_name]]))
+        before_after_values <- matrix(c(dataset[[column_name]][missing_data_indices - index], dataset[[column_name]][missing_data_indices + index]), ncol = 2)
+        interpolated_data <- apply(before_after_values, 1, interpolate, na.rm = TRUE)
+        dataset[[column_name]][missing_data_indices] <- interpolated_data
+        index <- index + 1
+        if (index > 4) {
+            warning("Stopped interpolation after 4 iterations")
+            break
         }
-        return(current_index)
-    }
-    for (na_index in row_indices_of_na) {
-        previous_value_index <- next_value_index(na_index, function(x) x - 1)
-        post_value_index <- next_value_index(na_index, function(x) x + 1)
-        if (abs(post_value_index - previous_value_index) > 4) {
-            next
-        }
-        previous_value <- dataset[previous_value_index, ][[column_name]]
-        post_value <- dataset[post_value_index, ][[column_name]]
-        interpolated_value <- NA
-        if (is.na(previous_value)) {
-            interpolated_value <- post_value
-        } else if (is.na(post_value)) {
-            interpolated_value <- previous_value
-        } else {
-            interpolated_value <- interpolate(previous_value, post_value)
-        }
-        dataset[na_index, ][[column_name]] <- interpolated_value
     }
     return(dataset)
+}
+
+remove_missing_data <- function(dataset, column_name = "TEMPERATURE.TOTAL", threshold = 0.01) {
+    na_indices <- which(is.na(dataset[[column_name]]))
+    if (length(na_indices) / nrow(dataset) > threshold) {
+        warning(paste("More than ", threshold * 100, "% of the data is missing"))
+    }
+    return(dataset[-which(is.na(dataset[[column_name]])), ])
 }
