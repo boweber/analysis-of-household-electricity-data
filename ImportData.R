@@ -27,7 +27,7 @@ import_data <- function(on_import = NULL, file_numbers = NULL, file_path = "OHNE
         ## file_number defines all data files that should be imported
         ## if any number does not match any number in file_numbers
         ## skip the iteration (aka. the import of the file)
-        if (!(number %in% file_numbers)) {
+        if (!is.null(file_numbers) && !(number %in% file_numbers)) {
             next
         }
         if (file.exists(file_directory(number))) {
