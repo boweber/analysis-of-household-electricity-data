@@ -79,14 +79,17 @@ import_ruhrgebiet_data <- function(cities = NULL) {
                         )
                         file_data <- dplyr::rename(
                             file_data,
-                            "index" = "Zeitstempel"
+                            "index" = "Zeitstempel",
+                            "HAUSHALT_TOT" = "Messwert"
                         )
                         household <- paste(city, file_number_of_city, sep = "_")
                         file_data$household <- as.factor(
                             rep(household, nrow(file_data))
                         )
                         na_indices <- which(is.na(file_data$index))
-                        file_data <- file_data[-na_indices, ]
+                        if (length(na_indices) > 0) {
+                            file_data <- file_data[-na_indices, ]
+                        }
                         if (is.null(data)) {
                             data <- file_data
                         } else {
@@ -100,5 +103,3 @@ import_ruhrgebiet_data <- function(cities = NULL) {
     }
     return(data)
 }
-
-test <- import_ruhrgebiet_data(cities = c("Dortmund"))
